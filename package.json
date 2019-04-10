@@ -1,0 +1,14 @@
+{
+  "name": "sc2-info-slackapp",
+  "version": "1.0.0",
+  "description": "Slack App to pull information and pictures relating to the video game Starcraft 2.",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Sean Budning",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.16.4"
+  }
+}
