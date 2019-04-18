@@ -9,6 +9,8 @@
   "author": "Sean Budning",
   "license": "ISC",
   "dependencies": {
-    "express": "^4.16.4"
+    "express": "^4.16.4",
+    "fuzzy-search": "^3.0.1",
+    "request": "^2.65.0"
   }
 }
