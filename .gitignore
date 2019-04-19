@@ -21,3 +21,8 @@ $RECYCLE.BIN/
 # =========================
 # Operating System Files
 # =========================
+
+# Directories potentially existing in the project folder
+node_modules/
+codepens
+Temporary Items
