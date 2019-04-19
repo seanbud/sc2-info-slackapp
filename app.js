@@ -56,31 +56,12 @@ app.post('/map', function (req, res) {
 			// report results of fuzzy search.
 			console.log('result of fuzzy-search : ' + JSON.stringify(possible_maps));
 
-			var pageid = possible_maps[0].pageid;
-			console.log('isolate the best pageid : ' + pageid + '\n');
+			var page_ext = possible_maps[0].title.replace(' ','_');
 
 			// Generate a new uri using the pageid
-			var generated_uri = 'https://liquipedia.net/starcraft2/api.php?action=query&format=json&prop=imageinfo&pageids=' + pageid + '&iiprop=timestamp%7Cuser%7Curl&iilimit=1';
+			var generated_uri = 'https://liquipedia.net/starcraft2/' + page_ext;
 
-			// TODO wait 2 seconds,
-			sleep(2000).then(() => {
-			    // After sleeping, make another request to liquipedia
-			    var opt2 = {
-					method: 'GET'
-					, uri: generated_uri
-					, gzip: true,
-					headers: {
-			    		'User-Agent': 'Sc2 Info SlackBot/v1.0 (https://github.com/seanbud/sc2-info-slackapp/; sbudning@gmail.com)'
-		  			}
-		  		};
-		  		// Return a promise that chains the new request.
-		  		return rp(opt2);
-			});
-			
-		})
-		.then(function (url) {
-			// Reply to the client with the url.
-			res.status(200).send(url);
+			res.status(200).send(generated_uri);
 		})
 		.catch(function (err) {
 	        // TODO handle errs
