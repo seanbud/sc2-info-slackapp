@@ -1,24 +1,27 @@
+// For making requests
 var rp = require('request-promise');
+
+// For parsing, scraping data
 var fuzzysearch = require('fuzzy-search');
 var cheerio = require('cheerio');
-var express = require('express');
 
+// framework, app setup
+var express = require('express');
 var app = express();
 app.use(express.urlencoded({extended: false}));
 
+// Route : MAP
 app.post('/map', 
-	
+	// Respond imediately to the POST request, then continue
 	function (req, res, next) {
-		// Respond imediately to the POST request, then continue
 		res.status(200).type('json').json({ response_type: "in_channel" });
 		console.log('POST request to \'' + req.body.command + '\', with data: \'' + req.body.text + '\'');
 		next();
 	}, 
 	
+	// Query a list of pages from the Liquipedia API ("Category:Maps")
+	//	parse, filter, and return a list of map titles.
 	function (req, res) {
-		// Query a list of pages from the Liquipedia API.
-		// 	Start with all the pages with "Category:Maps", then parse and filter,
-		//	 Reutrn a list of objects, [{ pageid, title }...]
 		rp({
 			method: 'GET',
 			uri: 'https://liquipedia.net/starcraft2/api.php?action=query&format=json&list=categorymembers&cmtitle=Category%3AMaps&cmlimit=max',
@@ -31,46 +34,37 @@ app.post('/map',
 			transform: function (body, response, resolveWithFullResponse) {
 				return JSON.parse(body).query.categorymembers
 							.filter(function(page) { return page.ns == '0'; })
-							.map(page => ({ pageid: page.pageid, title: page.title}));
+							.map(page => page.title );
 			}
 		})
 
-		// Fuzzy-search the list of page objects for the most relevant map title.
-		//	Request the respective page from liquipedia and scrape for the img.
-		//	 Send a POST to slack to show the map image and title.
-		.then(function (page_list) {
+		// Fuzzy-search for the most relevant map. 
+		//	Request liquipedia page, scrape the img.
+		//	 Send POST to slack, show the map image and title.
+		.then(function (map_list) {
+			var searcher = new fuzzysearch(map_list, [], { sort: true });
+			var search_results = searcher.search(req.body.text);
 
-			// Fuzzy-search the a filtered list of maps for the data argument
-			var searcher = new fuzzysearch(page_list, ['title'], { sort: true });
-			var possible_maps = searcher.search(req.body.text);
-
-			// Return no matching map name.
-			if(possible_maps.length < 1) {
-				rp({
-					method: 'POST',
-					uri: req.body.response_url,
-					body: {
-						'response_type': "in_channel",
-		    			'text': 'The search term \"' + req.body.text + '\" yielded no results.'
-		    		},
-					json: true
-				});
+			// Check for 0 matching map results
+			if(search_results.length < 1) {
+				slack_response_noresults(req.body.response_url, req.body.text);
 				return;
 			}
 
-			// Generate the related pages' uri 
-			var map_title = possible_maps[0].title;
-			var generated_uri = 'https://liquipedia.net/starcraft2/' + map_title.replace(' ','_');
+			// Get a uri for the map's liquipedia page
+			var map_title = search_results[0];
+			var map_page_uri = 'https://liquipedia.net/starcraft2/' + map_title.replace(' ','_');
 
-			// Request the html for the maps' liquipedia page.
+			// Request the html for the related map page
 			rp({
 				method: 'GET',
-				uri: generated_uri,
+				uri: map_page_uri,
 				gzip: true,
 				headers: {
 					'User-Agent': 'Sc2 Info SlackBot/v1.0 (https://github.com/seanbud/sc2-info-slackapp/; sbudning@gmail.com)'
 				}
 			})
+			
 			.then(function (response_html) {
 				// Use cheerio to scrape the url of the first image off the page.
 				const $ = cheerio.load(response_html);
@@ -79,31 +73,52 @@ app.post('/map',
 				// Report to server console
 				console.log('Serving :  ' + img_url);
 
-				// Send a response to sack's response_url.
-				//	Format the message to show the map image and title.
-				rp({
-					method: 'POST',
-					uri: req.body.response_url,
-					json: true,
-					body: {
-						'response_type': "in_channel",
-		    			"attachments":
-							[{
-								"title": map_title,
-								"fallback": "image of map " + map_title,
-								"image_url": img_url
-							}]
-		    		}
-				});
+				// Send a second and final response to slack.
+				//	Show the map image and title.
+				slack_response_showimage(req.body.response_url, map_title, img_url);
 			})
 		})
 		
-		// Handle any errors
+		// Log errors to server
 		.catch(function (err) {
 			console.error(err);
 		});
 });
 
-app.listen(8000, function(){
-	console.log('starting server -- listening on port 8000.');
+
+// Slack Responses -----------------
+function slack_response_noresults(response_url, search_term) {
+	rp({
+		method: 'POST',
+		uri: response_url,
+		body: {
+			'response_type': "in_channel",
+			'text': 'The search term \"' + search_term + '\" yielded no results.'
+		},
+		json: true
+	});
+};
+
+function slack_response_showimage(response_url, img_title, img_url) {
+	rp({
+		method: 'POST',
+		uri: response_url,
+		json: true,
+		body: {
+			'response_type': 'in_channel',
+			'attachments': [{
+				'title': img_title,
+				'fallback': 'image of ' + img_title,
+				'image_url': img_url
+			}]
+		}
+	});
+};
+// ----------------------------------
+
+
+// Start Server
+var PORT = process.env.PORT || 8000;
+app.listen(PORT, function(){
+	console.log('starting server -- listening on port ' + PORT + '.\n');
 });
