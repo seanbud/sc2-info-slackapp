@@ -1,5 +1,5 @@
 # sc2-info-slackapp
-Slak App to provide info about sc maps, units, structures, and upgrades.
+Slack App to provide info about sc maps, units, structures, and upgrades.
 
 </br>
 </br>
