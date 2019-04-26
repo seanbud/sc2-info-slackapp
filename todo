@@ -1,12 +1,22 @@
+To deploy: open a git-bash shell to the git repo, and type:
+
+		git push heroku master
+
+
+
+To view the amount of free dyno hours remaining by using the CLI. You can do this by running heroku ps on one of your free apps.
+
+		 ps -a sc2-info-slackapp
+
+
+
+
+
+
+
 todo
 ------
 
-1. 	(query string)
-watch youtube videos, figure out how to use slack api / connect to slack, and take a data payload.
 
-2. figure out how to throttle my requests to hit liquipedia no more than once / 2 seconds.
-
-3. Update Github, create a readme.
-
-4. host on my website? under a different port somehow.
-		OR deploy to Google App Engine, or other free alternative.
+	- add oauth support to the app, deploy to slack. 
+	- Create a github readme / info page with a gif.

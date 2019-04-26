@@ -6,11 +6,40 @@ var fuzzysearch = require('fuzzy-search');
 var cheerio = require('cheerio');
 
 // framework, app setup
+require('dotenv').config();
 var express = require('express');
 var app = express();
 app.use(express.urlencoded({extended: false}));
 
-// Route : MAP
+// Start Server
+var PORT = process.env.PORT || 8000;
+app.listen(PORT, function(){
+	console.log('starting server -- listening on port ' + PORT + '.\n');
+});
+
+// Authenticate
+app.get('/oauth/redirect', (req, res) => {
+    rp({
+        uri: 'https://slack.com/api/oauth.access?code='
+            +req.query.code+
+            '&client_id='+process.env.CLIENT_ID+
+            '&client_secret='+process.env.CLIENT_SECRET+
+            '&redirect_uri='+process.env.REDIRECT_URI,
+        method: 'GET'
+    }). then( function (){
+        var JSONresponse = JSON.parse(body);
+        if (!JSONresponse.ok){
+            var err_msg = "Error encountered while authenticating: \n" + JSON.stringify(JSONresponse);
+            console.log(err_msg);
+            res.send(err_msg).status(200).end();
+        } else {
+            console.log(JSONresponse)
+            res.send("Success!");
+        }
+    })
+})
+
+// Display sc2 Map
 app.post('/map', 
 	// Respond imediately to the POST request, then continue
 	function (req, res, next) {
@@ -116,9 +145,3 @@ function slack_response_showimage(response_url, img_title, img_url) {
 };
 // ----------------------------------
 
-
-// Start Server
-var PORT = process.env.PORT || 8000;
-app.listen(PORT, function(){
-	console.log('starting server -- listening on port ' + PORT + '.\n');
-});
