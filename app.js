@@ -19,17 +19,20 @@ app.listen(PORT, function(){
 
 // Authenticate
 app.get('/oauth', (req, res) => {
+	console.log("client id : "  + process.env.CLIENT_ID);
     rp({
+        method: 'GET',
         uri: 'https://slack.com/api/oauth.access?code='
             +req.query.code+
             '&client_id='+process.env.CLIENT_ID+
-            '&client_secret='+process.env.CLIENT_SECRET+
-            '&redirect_uri='+process.env.REDIRECT_URI,
-        method: 'GET'
-    }). then( function (){
-        var JSONresponse = JSON.parse(req.body);
+            '&client_secret='+process.env.CLIENT_SECRET, //+
+            //'&redirect_uri='+process.env.REDIRECT_URI,
+	    transform: (body) => { return JSON.parse(body); }
+    })
+    .then( function (JSONresponse){
+        // var JSONresponse = JSON.parse(body);
         if (!JSONresponse.ok){
-            var err_msg = "Error encountered while authenticating: \n" + JSON.stringify(JSONresponse);
+            var err_msg = "Error encountered while authenticating: " + JSON.stringify(JSONresponse);
             console.log(err_msg);
             res.send(err_msg).status(200).end();
         } else {
