@@ -27,7 +27,7 @@ app.get('/oauth', (req, res) => {
             '&redirect_uri='+process.env.REDIRECT_URI,
         method: 'GET'
     }). then( function (){
-        var JSONresponse = JSON.parse(body);
+        var JSONresponse = JSON.parse(req.body);
         if (!JSONresponse.ok){
             var err_msg = "Error encountered while authenticating: \n" + JSON.stringify(JSONresponse);
             console.log(err_msg);
