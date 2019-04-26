@@ -15,5 +15,9 @@
     "fuzzy-search": "^3.0.1",
     "request": "^2.65.0",
     "request-promise": "^4.2.4"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/seanbud/sc2-info-slackapp.git"
   }
 }
