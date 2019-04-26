@@ -6,10 +6,10 @@ var fuzzysearch = require('fuzzy-search');
 var cheerio = require('cheerio');
 
 // framework, app setup
-require('dotenv').config();
 var express = require('express');
 var app = express();
 app.use(express.urlencoded({extended: false}));
+require('dotenv').config();
 
 // Start Server
 var PORT = process.env.PORT || 8000;
