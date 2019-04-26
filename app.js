@@ -9,7 +9,7 @@ var cheerio = require('cheerio');
 var express = require('express');
 var app = express();
 app.use(express.urlencoded({extended: false}));
-require('dotenv').config();
+// require('dotenv').config(); // used for testing on localhost
 
 // Start Server
 var PORT = process.env.PORT || 8000;
@@ -19,18 +19,15 @@ app.listen(PORT, function(){
 
 // Authenticate
 app.get('/oauth', (req, res) => {
-	console.log("client id : "  + process.env.CLIENT_ID);
     rp({
         method: 'GET',
         uri: 'https://slack.com/api/oauth.access?code='
             +req.query.code+
             '&client_id='+process.env.CLIENT_ID+
-            '&client_secret='+process.env.CLIENT_SECRET, //+
-            //'&redirect_uri='+process.env.REDIRECT_URI,
+            '&client_secret='+process.env.CLIENT_SECRET,
 	    transform: (body) => { return JSON.parse(body); }
     })
     .then( function (JSONresponse){
-        // var JSONresponse = JSON.parse(body);
         if (!JSONresponse.ok){
             var err_msg = "Error encountered while authenticating: " + JSON.stringify(JSONresponse);
             console.log(err_msg);
