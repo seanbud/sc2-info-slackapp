@@ -9,7 +9,9 @@ var cheerio = require('cheerio');
 var express = require('express');
 var app = express();
 app.use(express.urlencoded({extended: false}));
-// require('dotenv').config(); // used for testing on localhost
+// require('dotenv').config(); // only used for testing on localhost
+
+
 
 // Start Server
 var PORT = process.env.PORT || 8000;
@@ -43,6 +45,13 @@ app.get('/oauth', (req, res) => {
 app.post('/map', 
 	// Respond imediately to the POST request, then continue
 	function (req, res, next) {
+		// Handle help msg
+		if(req.body.text === 'help') {
+			res.status(200).send(slack_helpmsg_map);
+			return;
+		}
+
+		// Otherwise, respond 200 and continue.
 		res.status(200).type('json').json({ response_type: "in_channel" });
 		console.log('POST request to \'' + req.body.command + '\', with data: \'' + req.body.text + '\'');
 		next();
@@ -143,5 +152,10 @@ function slack_response_showimage(response_url, img_title, img_url) {
 		}
 	});
 };
+
+const slack_helpmsg_map = 'Command */map* _<map name>_ , where _map name_ is the name of an sc2 map. '+
+	'I will reply with the closest matching map title and image. \n\n'+
+	'For example, ```/map habit station``` will pull up the map *Habitation Station*.\n';
+
 // ----------------------------------
 
