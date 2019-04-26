@@ -18,7 +18,7 @@ app.listen(PORT, function(){
 });
 
 // Authenticate
-app.get('/oauth/redirect', (req, res) => {
+app.get('/oauth', (req, res) => {
     rp({
         uri: 'https://slack.com/api/oauth.access?code='
             +req.query.code+
