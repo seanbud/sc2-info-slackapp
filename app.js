@@ -9,6 +9,7 @@ var cheerio = require('cheerio');
 var express = require('express');
 var app = express();
 app.use(express.urlencoded({extended: false}));
+app.use(express.static(__dirname + '/public'));
 // require('dotenv').config(); // only used for testing on localhost
 
 
@@ -17,6 +18,11 @@ app.use(express.urlencoded({extended: false}));
 var PORT = process.env.PORT || 8000;
 app.listen(PORT, function(){
 	console.log('starting server -- listening on port ' + PORT + '.\n');
+});
+
+// App Homepage
+app.get('/', function(req,res){
+	res.sendFile(__dirname + '/index.html');
 });
 
 // Authenticate
