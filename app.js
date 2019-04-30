@@ -63,8 +63,7 @@ app.post('/map',
 		next();
 	}, 
 	
-	// Query a list of pages from the Liquipedia API ("Category:Maps")
-	//	parse, filter, and return a list of map titles.
+	// Query a list of pages from the Liquipedia API ("Category:Maps"). Return a list of map titles.
 	function (req, res) {
 		rp({
 			method: 'GET',
@@ -74,7 +73,7 @@ app.post('/map',
 				'User-Agent': 'Sc2 Info SlackBot/v1.0 (https://github.com/seanbud/sc2-info-slackapp/; sbudning@gmail.com)'
 			},
 			
-			// parse, filter, and map the data into an array of page objects
+			// parse, filter, map the data into a list of map titles.
 			transform: function (body, response, resolveWithFullResponse) {
 				return JSON.parse(body).query.categorymembers
 							.filter(function(page) { return page.ns == '0'; })
@@ -82,8 +81,8 @@ app.post('/map',
 			}
 		})
 
-		// Fuzzy-search for the most relevant map. 
-		//	Request liquipedia page, scrape the img.
+		// Fuzzy-search for the closest map title,
+		//	Request its' liquipedia page, scrape the img.
 		//	 Send POST to slack, show the map image and title.
 		.then(function (map_list) {
 			var searcher = new fuzzysearch(map_list, [], { sort: true });
@@ -110,15 +109,14 @@ app.post('/map',
 			})
 			
 			.then(function (response_html) {
-				// Use cheerio to scrape the url of the first image off the page.
+				// Use cheerio to scrape the img url of the first image contained in a link.
 				const $ = cheerio.load(response_html);
 				const img_url = 'https://liquipedia.net' + $('a > img')[0].attribs['src'];
 
-				// Report to server console
+				// Report the file we are serving
 				console.log('Serving :  ' + img_url);
 
-				// Send a second and final response to slack.
-				//	Show the map image and title.
+				// Send a second and final response to slack. Display the map image and title.
 				slack_response_showimage(req.body.response_url, map_title, img_url);
 			})
 		})
