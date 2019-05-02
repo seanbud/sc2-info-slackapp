@@ -1,6 +1,10 @@
 // For making requests
 var rp = require('request-promise');
 
+// For varifying request signatures
+const crypto = require('crypto');
+const qs = require('qs');
+
 // For parsing, scraping data
 var fuzzysearch = require('fuzzy-search');
 var cheerio = require('cheerio');
@@ -10,22 +14,21 @@ var express = require('express');
 var app = express();
 app.use(express.urlencoded({extended: false}));
 app.use(express.static(__dirname + '/public'));
-// require('dotenv').config(); // only used for testing on localhost
-
+require('dotenv').config(); // only used for testing on localhost
 
 
 // Start Server
 var PORT = process.env.PORT || 8000;
-app.listen(PORT, function(){
+app.listen(PORT, function() {
 	console.log('starting server -- listening on port ' + PORT + '.\n');
 });
 
-// App Homepage
+// Serve App Homepage
 app.get('/', function(req,res){
 	res.sendFile(__dirname + '/index.html');
 });
 
-// Authenticate
+// Authenticate Workspace
 app.get('/oauth', (req, res) => {
     rp({
         method: 'GET',
@@ -36,23 +39,24 @@ app.get('/oauth', (req, res) => {
 	    transform: (body) => { return JSON.parse(body); }
     })
     .then( function (JSONresponse){
-        if (!JSONresponse.ok){
-            var err_msg = "Error encountered while authenticating: " + JSON.stringify(JSONresponse);
+        if (!JSONresponse.ok) {
+            var err_msg = "Error encountered while authenticating your workspace: " + JSON.stringify(JSONresponse);
             console.log(err_msg);
             res.send(err_msg).status(200).end();
         } else {
-            console.log(JSONresponse)
-            res.send("Success!");
+            console.log(JSONresponse)	
+			res.sendFile(__dirname + '/success.html'); // TODO implement this page
         }
     })
 })
 
-// Display sc2 Map
-app.post('/map', 
+// Reply in channel with a map image
+app.post('/map', VerifyRequestSignature,
+
 	// Respond imediately to the POST request, then continue
 	function (req, res, next) {
 		// Handle help msg
-		if(req.body.text === 'help') {
+		if(req.body.text === '' || req.body.text === 'help') {
 			res.status(200).send(slack_helpmsg_map);
 			return;
 		}
@@ -161,5 +165,42 @@ const slack_helpmsg_map = 'Command */map* _<map name>_ , where _map name_ is the
 	'I will reply with the closest matching map title and image. \n\n'+
 	'For example, ```/map habit station``` will pull up the map *Habitation Station*.\n';
 
-// ----------------------------------
+// Slack Request Helpers -----------------
+function VerifyRequestSignature(req,res,next) {
+	/*
+		pseudo-code,
+		----------------
+		1. Retrieve timestamp from header in req. check for replay attacks.
+		2. Concatenate 'v0', the timestamp, and the body of the request to form a basestring. Use a colon as the delimiter between each. 
+			For example, v0:123456789:command=/weather&text=94070.
+		3. find library for HMAC SHA256, and use it to, hash the above basestring, using the Slack Signing Secret as the key.
+		4. Retrieve ' X-Slack-Signature' from header in req.
+		5. Compare this computed signature to the xslacksig we just retrieved.
+	*/
+	const timestamp = req.headers['x-slack-request-timestamp'];
+	// If req timestamp is 5+ min old, could be a replay attack- ignore it.
+	if (Math.abs(Math.floor(Date.now() / 1000) - timestamp) > 60 * 5) { 
+		console.log('Request too old! Ignoreing request.\n');
+		return; 
+	}
+	const requestBody = qs.stringify(req.body,{ format:'RFC1738' });
+	const basestring = 'v0:' + timestamp + ':' + requestBody;
 
+	// Hash above basetring using env.signingsecret as the key.
+	const computed_sig = 'v0=' + 
+					crypto.createHmac('sha256', process.env.SIGNING_SECRET)
+                        .update(basestring, 'utf8')
+                        .digest('hex');
+
+	const req_sig = req.headers['x-slack-signature'];
+
+	// Compare, and continue if the signature matches.
+	if (crypto.timingSafeEqual( 
+		Buffer.from(computed_sig, 'utf8'), 
+		Buffer.from(req_sig, 'utf8')))
+	{
+		next();
+	} else {
+		return res.status(400).send('Request Verification Failed');
+	}
+}
