@@ -14,7 +14,7 @@ var express = require('express');
 var app = express();
 app.use(express.urlencoded({extended: false}));
 app.use(express.static(__dirname + '/public'));
-require('dotenv').config(); // only used for testing on localhost
+//require('dotenv').config(); // only used for testing on localhost
 
 
 // Start Server
@@ -45,7 +45,7 @@ app.get('/oauth', (req, res) => {
             res.send(err_msg).status(200).end();
         } else {
             console.log(JSONresponse)	
-			res.sendFile(__dirname + '/oauth_success.html');
+			res.sendFile(__dirname + 'public/oauth_success.html');
         }
     })
 })
