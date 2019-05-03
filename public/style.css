@@ -1,5 +1,16 @@
 html, body {
 	background-color: #dedede;
+	background: linear-gradient(to bottom, rgba(255,255,255,0.15) 0%, rgba(0,0,0,0.15) 100%), 
+				radial-gradient(at top center, rgba(255,255,255,0.40) 0%, rgba(0,0,0,0.40) 120%) #989898; 
+ 	background-blend-mode: multiply, multiply;
+} 
+
+html {
+  height: 100%;
+} 
+
+body {
+  min-height: 100%;
 }
 
 span { 
@@ -13,9 +24,11 @@ span {
 
 .jumbotron p {
 	padding: 0.25em 6em;
+	color: #dedede;
+	font-style: italic;
 }
 
-.jumbotron img {
+.shadow, .shadow > a {
 	border-radius: 15px;
 	border: 3px solid white;
 	-webkit-box-shadow: 6px 6px 6px -4px #000;
@@ -23,7 +36,7 @@ span {
 	box-shadow: 6px 6px 6px -4px #000;
 }
 
-#about, #install, #usage, #privacy, #support{
+.container{
 	padding: 0 3em;
 	background-color: #d2d2d2;
 }
@@ -39,4 +52,19 @@ span {
 	padding: 0.5em;
 	position: relative;
 	top: -0.25em;
+}
+
+#success a {
+	font-size: 16px;
+	padding: 1em;
+	background-color: #fefefe;
+	color: black;
+	border-radius: 10px;
+	margin: 1em;
+}
+
+.glyphicon {
+	font-size: 2em;
+	position: relative;
+	top:0.3em;
 }
