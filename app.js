@@ -45,7 +45,7 @@ app.get('/oauth', (req, res) => {
             res.send(err_msg).status(200).end();
         } else {
             console.log(JSONresponse)	
-			res.sendFile(__dirname + 'public/oauth_success.html');
+			res.sendFile(__dirname + '/public/oauth_success.html');
         }
     })
 })
