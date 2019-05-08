@@ -1,21 +1,17 @@
-// For making requests
-var rp = require('request-promise');
 
-// For varifying request signatures
-const crypto = require('crypto');
-const qs = require('qs');
+var rp = require('request-promise');			// For making requests
+const crypto = require('crypto');				// For varifying request signatures
+const qs = require('qs');						// For varifying request signatures
+var fuzzysearch = require('fuzzy-search');		// For parsing data
+var cheerio = require('cheerio');				// For scraping data
+//require('dotenv').config(); 					// only used for testing on localhost
 
-// For parsing, scraping data
-var fuzzysearch = require('fuzzy-search');
-var cheerio = require('cheerio');
 
 // framework, app setup
 var express = require('express');
 var app = express();
 app.use(express.urlencoded({extended: false}));
 app.use(express.static(__dirname + '/public'));
-//require('dotenv').config(); // only used for testing on localhost
-
 
 // Start Server
 var PORT = process.env.PORT || 8000;
@@ -85,9 +81,7 @@ app.post('/map', VerifyRequestSignature,
 			}
 		})
 
-		// Fuzzy-search for the closest map title,
-		//	Request its' liquipedia page, scrape the img.
-		//	 Send POST to slack, show the map image and title.
+		// Scrape the related map's url, POST to slack showing the map image and title.
 		.then(function (map_list) {
 			var searcher = new fuzzysearch(map_list, [], { sort: true });
 			var search_results = searcher.search(req.body.text);
@@ -131,8 +125,39 @@ app.post('/map', VerifyRequestSignature,
 		});
 });
 
+// Check the request is from Slack, and has a matching secret signature to our app.
+function VerifyRequestSignature(req,res,next) {
+	const req_timestamp = req.headers['x-slack-request-timestamp'];
 
-// Slack Responses -----------------
+	// If req timestamp is 5+ min old, could be a replay attack- ignore it.
+	if (Math.abs(Math.floor(Date.now() / 1000) - req_timestamp) > 60 * 5) { 
+		console.log('Request too old! Ignoreing request.\n');
+		return; 
+	}
+
+	// Create a basestring
+	const requestBody = qs.stringify(req.body,{ format:'RFC1738' });
+	const basestring = 'v0:' + req_timestamp + ':' + requestBody;
+
+	// Hash above basetring using the local signing secret as the key.
+	const computed_sig = 'v0=' + 
+					crypto.createHmac('sha256', process.env.SIGNING_SECRET)
+                        .update(basestring, 'utf8')
+                        .digest('hex');
+
+	// Compare, and continue if the signatures matches.
+	if (crypto.timingSafeEqual( 
+		Buffer.from(computed_sig, 'utf8'), 
+		Buffer.from(req.headers['x-slack-signature'], 'utf8')))
+	{
+		next();
+	} else {
+		return res.status(400).send('Request Verification Failed');
+	}
+}
+
+
+// Send a message to the slack channel, query had no results.
 function slack_response_noresults(response_url, search_term) {
 	rp({
 		method: 'POST',
@@ -145,6 +170,7 @@ function slack_response_noresults(response_url, search_term) {
 	});
 };
 
+// Send an image to the slack channel
 function slack_response_showimage(response_url, img_title, img_url) {
 	rp({
 		method: 'POST',
@@ -161,46 +187,9 @@ function slack_response_showimage(response_url, img_title, img_url) {
 	});
 };
 
+// Text on how to use the map command
 const slack_helpmsg_map = 'Command */map* _<map name>_ , where _map name_ is the name of an sc2 map. '+
 	'I will reply with the closest matching map title and image. \n\n'+
 	'For example, ```/map habit station``` will pull up the map *Habitation Station*.\n';
 
-// Slack Request Helpers -----------------
-function VerifyRequestSignature(req,res,next) {
-	/*
-		pseudo-code,
-		----------------
-		1. Retrieve timestamp from header in req. check for replay attacks.
-		2. Concatenate 'v0', the timestamp, and the body of the request to form a basestring. Use a colon as the delimiter between each. 
-			For example, v0:123456789:command=/weather&text=94070.
-		3. find library for HMAC SHA256, and use it to, hash the above basestring, using the Slack Signing Secret as the key.
-		4. Retrieve ' X-Slack-Signature' from header in req.
-		5. Compare this computed signature to the xslacksig we just retrieved.
-	*/
-	const timestamp = req.headers['x-slack-request-timestamp'];
-	// If req timestamp is 5+ min old, could be a replay attack- ignore it.
-	if (Math.abs(Math.floor(Date.now() / 1000) - timestamp) > 60 * 5) { 
-		console.log('Request too old! Ignoreing request.\n');
-		return; 
-	}
-	const requestBody = qs.stringify(req.body,{ format:'RFC1738' });
-	const basestring = 'v0:' + timestamp + ':' + requestBody;
 
-	// Hash above basetring using env.signingsecret as the key.
-	const computed_sig = 'v0=' + 
-					crypto.createHmac('sha256', process.env.SIGNING_SECRET)
-                        .update(basestring, 'utf8')
-                        .digest('hex');
-
-	const req_sig = req.headers['x-slack-signature'];
-
-	// Compare, and continue if the signature matches.
-	if (crypto.timingSafeEqual( 
-		Buffer.from(computed_sig, 'utf8'), 
-		Buffer.from(req_sig, 'utf8')))
-	{
-		next();
-	} else {
-		return res.status(400).send('Request Verification Failed');
-	}
-}
