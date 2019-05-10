@@ -24,4 +24,4 @@ This is a free app for social purposes. The app does not collect any data whatso
 
 <h1>Animated Demonstration : </h1>
 
-![Alt animateddemo](public/demo.gif?raw=true "Animated Demo")
+<html><kbd><img alt="Animated Demo" src="public/demo.gif?raw=true" /></kbd></html>
