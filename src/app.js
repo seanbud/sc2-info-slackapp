@@ -4,7 +4,7 @@ const crypto = require('crypto');				// For varifying request signatures
 const qs = require('qs');						// For varifying request signatures
 var fuzzysearch = require('fuzzy-search');		// For parsing data
 var cheerio = require('cheerio');				// For scraping data
-//require('dotenv').config(); 					// only used for testing on localhost
+//require('dotenv').config(); 					// only used for testing locally
 
 
 // framework, app setup
@@ -124,6 +124,7 @@ app.post('/map', VerifyRequestSignature,
 			console.error(err);
 		});
 });
+
 
 // Check the request is from Slack, and has a matching secret signature to our app.
 function VerifyRequestSignature(req,res,next) {
