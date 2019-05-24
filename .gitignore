@@ -23,9 +23,8 @@ $RECYCLE.BIN/
 # =========================
 
 # Directories potentially existing in the project folder
-node_modules/
-codepens
-Temporary Items
+/node_modules
+npm-debug.log
+.DS_Store
+/*.env
 todo
-.env
-.env
