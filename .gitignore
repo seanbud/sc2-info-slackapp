@@ -28,3 +28,4 @@ npm-debug.log
 .DS_Store
 /*.env
 todo
+src/sandbox.js

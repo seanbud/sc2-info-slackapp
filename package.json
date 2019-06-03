@@ -20,5 +20,10 @@
   "repository": {
     "type": "git",
     "url": "https://github.com/seanbud/sc2-info-slackapp.git"
+  },
+  "devDependencies": {
+    "eslint": "^5.16.0",
+    "eslint-config-airbnb-base": "^13.1.0",
+    "eslint-plugin-import": "^2.17.2"
   }
 }
