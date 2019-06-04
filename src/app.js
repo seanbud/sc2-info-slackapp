@@ -11,34 +11,24 @@ const fetch = require('node-fetch'); // request resources via http
 const router = express.Router;
 router.use(express.urlencoded({ extended: false }));
 
-// Send a message to the slack channel, query had no results.
-function slackResponseInChannel(responseUrl, text) {
-  fetch(responseUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: {
-      response_type: 'in_channel',
-      text,
-    },
-  });
+// --------------------- usage strings, related middleware functions -----------------------
+// Dictionary of each command, how to use it
+const usageStrings = {
+  map: `Command */map* _<map name>_ , where _map name_ is the name of an sc2 map. 
+    I will reply with the closest matching map title and image. \n\n
+    For example, \`\`\`/map habit station\`\`\` will pull up the map *Habitation Station*.\n`,
+};
+
+function HandleHelpMsg(req, res, next) {
+  // Handle help msg
+  if (req.body.text === '' || req.body.text === 'help') {
+    res.status(200).send(usageStrings[req.params.cmd]);
+    return;
+  }
+  next();
 }
 
-// Send an image to the slack channel
-function slackResponseShowimage(responseUrl, imgTitle, imgUrl) {
-  fetch(responseUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: {
-      response_type: 'in_channel',
-      attachments: [{
-        title: imgTitle,
-        fallback: `image of ${imgTitle}`,
-        image_url: imgUrl,
-      }],
-    },
-  });
-}
-
+// --------------------- slack-api functions -----------------------------------------------
 // Check the request is from Slack, and has a matching secret signature to our app.
 function VerifyRequestSignature(req, res, next) {
   const requestTimestamp = req.headers['x-slack-request-timestamp'];
@@ -72,22 +62,6 @@ function VerifyRequestSignature(req, res, next) {
   }
 }
 
-// Dictionary of each command, how to use it
-const usageStrings = {
-  map: `Command */map* _<map name>_ , where _map name_ is the name of an sc2 map. 
-    I will reply with the closest matching map title and image. \n\n
-    For example, \`\`\`/map habit station\`\`\` will pull up the map *Habitation Station*.\n`,
-};
-
-function HandleHelpMsg(req, res, next) {
-  // Handle help msg
-  if (req.body.text === '' || req.body.text === 'help') {
-    res.status(200).send(usageStrings[req.params.cmd]);
-    return;
-  }
-  next();
-}
-
 // Respond imediately to the POST request, then continue
 function RespondProcessing(req, res, next) {
   res.status(200).type('json').json({ response_type: 'in_channel', text: 'processing..' });
@@ -95,6 +69,35 @@ function RespondProcessing(req, res, next) {
   next('route');
 }
 
+// Send a message to the slack channel, query had no results.
+function slackResponseInChannel(responseUrl, text) {
+  fetch(responseUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: {
+      response_type: 'in_channel',
+      text,
+    },
+  });
+}
+
+// Send an image to the slack channel
+function slackResponseShowimage(responseUrl, imgTitle, imgUrl) {
+  fetch(responseUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: {
+      response_type: 'in_channel',
+      attachments: [{
+        title: imgTitle,
+        fallback: `image of ${imgTitle}`,
+        image_url: imgUrl,
+      }],
+    },
+  });
+}
+
+// --------------------- liquipedia-api functions -----------------------------------------
 async function GetMapListFromLiquipedia() {
   return fetch('https://liquipedia.net/starcraft2/api.php?action=query&format=json&list=categorymembers&cmtitle=Category%3AMaps&cmlimit=max', {
     method: 'POST',
