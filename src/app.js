@@ -1,37 +1,43 @@
 
-const rp = require('request-promise'); // For making requests
 const crypto = require('crypto'); // For varifying request signatures
 const qs = require('qs'); // For varifying request signatures
 const FuzzySearch = require('fuzzy-search'); // For parsing data
 const cheerio = require('cheerio'); // For scraping data
 const express = require('express'); // Framework setup
 const path = require('path'); // Framework setup
-// const fetch = require('node-fetch');
+const fetch = require('node-fetch'); // request resources via http
 // require('dotenv').config(); // only used for testing locally
 
-const app = express();
-app.use(express.urlencoded({ extended: false }));
+const router = express.Router;
+router.use(express.urlencoded({ extended: false }));
 
-// Authenticate Workspace
-app.get('/oauth', (req, res) => {
-  rp({
-    method: 'GET',
-    uri: `https://slack.com/api/oauth.access?code=${req.query.code}`
-        + `&client_id=${process.env.CLIENT_ID}`
-        + `&client_secret=${process.env.CLIENT_SECRET}`,
-    transform: body => JSON.parse(body),
-  })
-    .then((JSONresponse) => {
-      if (!JSONresponse.ok) {
-        const errMsg = `Error encountered while authenticating your workspace: ${JSON.stringify(JSONresponse)}`;
-        console.err(errMsg);
-        res.send(errMsg).status(200).end();
-      } else {
-        console.log(JSONresponse);
-        res.sendFile(path.join(__dirname, '/public/oauth_success.html'));
-      }
-    });
-});
+// Send a message to the slack channel, query had no results.
+function slackResponseInChannel(responseUrl, text) {
+  fetch(responseUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: {
+      response_type: 'in_channel',
+      text,
+    },
+  });
+}
+
+// Send an image to the slack channel
+function slackResponseShowimage(responseUrl, imgTitle, imgUrl) {
+  fetch(responseUrl, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: {
+      response_type: 'in_channel',
+      attachments: [{
+        title: imgTitle,
+        fallback: `image of ${imgTitle}`,
+        image_url: imgUrl,
+      }],
+    },
+  });
+}
 
 // Check the request is from Slack, and has a matching secret signature to our app.
 function VerifyRequestSignature(req, res, next) {
@@ -66,113 +72,111 @@ function VerifyRequestSignature(req, res, next) {
   }
 }
 
+// Dictionary of each command, how to use it
+const usageStrings = {
+  map: `Command */map* _<map name>_ , where _map name_ is the name of an sc2 map. 
+    I will reply with the closest matching map title and image. \n\n
+    For example, \`\`\`/map habit station\`\`\` will pull up the map *Habitation Station*.\n`,
+};
 
-// Send a message to the slack channel, query had no results.
-function slackResponseNoresults(responseUrl, searchTerm) {
-  rp({
-    method: 'POST',
-    uri: responseUrl,
-    body: {
-      response_type: 'in_channel',
-      text: `The search term "${searchTerm}" yielded no results.`,
-    },
-    json: true,
-  });
+function HandleHelpMsg(req, res, next) {
+  // Handle help msg
+  if (req.body.text === '' || req.body.text === 'help') {
+    res.status(200).send(usageStrings[req.params.cmd]);
+    return;
+  }
+  next();
 }
 
-// Send an image to the slack channel
-function slackResponseShowimage(responseUrl, imgTitle, imgUrl) {
-  rp({
-    method: 'POST',
-    uri: responseUrl,
-    json: true,
-    body: {
-      response_type: 'in_channel',
-      attachments: [{
-        title: imgTitle,
-        fallback: `image of ${imgTitle}`,
-        image_url: imgUrl,
-      }],
-    },
-  });
+// Respond imediately to the POST request, then continue
+function RespondProcessing(req, res, next) {
+  res.status(200).type('json').json({ response_type: 'in_channel', text: 'processing..' });
+  console.log(`POST request to '${req.body.command}', with data: '${req.body.text}'`);
+  next('route');
 }
 
-// Text on how to use the map command
-const helpMessageMapCommand = 'Command */map* _<map name>_ , where _map name_ is the name of an sc2 map. '
-    + 'I will reply with the closest matching map title and image. \n\n'
-    + 'For example, ```/map habit station``` will pull up the map *Habitation Station*.\n';
-// Reply in channel with a map image
-app.post('/map', VerifyRequestSignature,
+async function GetMapListFromLiquipedia() {
+  return fetch('https://liquipedia.net/starcraft2/api.php?action=query&format=json&list=categorymembers&cmtitle=Category%3AMaps&cmlimit=max', {
+    method: 'POST',
+    gzip: true,
+    headers: {
+      'User-Agent': 'Sc2 Info SlackBot/v1.0 (https://github.com/seanbud/sc2-info-slackapp/; sbudning@gmail.com)',
+    },
+  })
+    .then(body => JSON.parse(body).query.categorymembers)
+    .filter(page => (page.ns === '0'))
+    .map(page => page.title);
+}
 
-  // Respond imediately to the POST request, then continue
-  (req, res, next) => {
-    // Handle help msg
-    if (req.body.text === '' || req.body.text === 'help') {
-      res.status(200).send(helpMessageMapCommand);
-      return;
+async function ScrapeFirstImgFromLiquipedia(pageUri) {
+  return fetch(pageUri, {
+    gzip: true,
+    headers: {
+      'User-Agent': 'Sc2 Info SlackBot/v1.0 (https://github.com/seanbud/sc2-info-slackapp/; sbudning@gmail.com)',
+    },
+  })
+    .then((responseHtml) => {
+      // Use cheerio to scrape the img url of the first image contained in a link.
+      const $ = cheerio.load(responseHtml);
+      return `https://liquipedia.net${$('a > img')[0].attribs.src}`;
+    });
+}
+
+async function GetMatchingMapObj(searchTerm) {
+  return new Promise(async (resolve, reject) => {
+    const mapList = await GetMapListFromLiquipedia();
+    const searcher = new FuzzySearch(mapList, [], { sort: true });
+    const searchResults = searcher.search(searchTerm);
+
+    // Check for 0 matching map results
+    if (searchResults.length < 1) {
+      reject(new Error(`The search term "${searchTerm}" yielded no results.`));
     }
 
-    // Otherwise, respond 200 and continue.
-    res.status(200).type('json').json({ response_type: 'in_channel' });
-    console.log(`POST request to '${req.body.command}', with data: '${req.body.text}'`);
-    next();
-  },
+    const mapTitle = searchResults[0];
 
-  // Query a list of pages from the Liquipedia API ("Category:Maps"). Return a list of map titles.
-  (req) => {
-    rp({
-      method: 'GET',
-      uri: 'https://liquipedia.net/starcraft2/api.php?action=query&format=json&list=categorymembers&cmtitle=Category%3AMaps&cmlimit=max',
-      gzip: true,
-      headers: {
-        'User-Agent': 'Sc2 Info SlackBot/v1.0 (https://github.com/seanbud/sc2-info-slackapp/; sbudning@gmail.com)',
-      },
-
-      // parse, filter, map the data into a list of map titles.
-      transform: body => JSON
-        .parse(body).query.categorymembers
-        .filter(page => (page.ns === '0'))
-        .map(page => page.title),
-    })
-
-      // Scrape the related map's url, POST to slack showing the map image and title.
-      .then((mapList) => {
-        const searcher = new FuzzySearch(mapList, [], { sort: true });
-        const searchResults = searcher.search(req.body.text);
-
-        // Check for 0 matching map results
-        if (searchResults.length < 1) {
-          slackResponseNoresults(req.body.response_url, req.body.text);
-          return;
-        }
-
-        // Get a uri for the map's liquipedia page
-        const mapTitle = searchResults[0];
-        const mapPageUri = `https://liquipedia.net/starcraft2/${mapTitle.replace(' ', '_')}`;
-
-        // Request the html for the related map page
-        rp({
-          method: 'GET',
-          uri: mapPageUri,
-          gzip: true,
-          headers: {
-            'User-Agent': 'Sc2 Info SlackBot/v1.0 (https://github.com/seanbud/sc2-info-slackapp/; sbudning@gmail.com)',
-          },
-        })
-
-          .then((responseHtml) => {
-            // Use cheerio to scrape the img url of the first image contained in a link.
-            const $ = cheerio.load(responseHtml);
-            const imgUrl = 'https://liquipedia.net' + $('a > img')[0].attribs.src;
-
-            // Report the file we are serving
-            console.log(`Serving :  ${imgUrl}`);
-
-            // Send a second and final response to slack. Display the map image and title.
-            slackResponseShowimage(req.body.response_url, mapTitle, imgUrl);
-          });
-      })
-
-      // Log errors to server
-      .catch(err => console.error(err));
+    resolve({
+      title: mapTitle,
+      pageUri: `https://liquipedia.net/starcraft2/${mapTitle.replace(' ', '_')}`,
+    });
   });
+}
+
+// --------------------- api routes ------------------------
+// Authenticate workspace
+router.get('/oauth', (req, res) => {
+  // 'GET' authentication
+  const authURI = `https://slack.com/api/oauth.access?code=${req.query.code}`
+    + `&client_id=${process.env.CLIENT_ID}`
+    + `&client_secret=${process.env.CLIENT_SECRET}`;
+  const JSONresponse = fetch(authURI)
+    .then(authResponse => JSON.parse(authResponse.body));
+
+  // Handle results
+  if (JSONresponse.ok) {
+    console.log(JSONresponse);
+    res.sendFile(path.join(__dirname, '/public/oauth_success.html'));
+  } else {
+    const errMsg = `Error encountered while authenticating your workspace: ${JSON.stringify(JSONresponse)}`;
+    console.err(errMsg);
+    res.send(errMsg).status(401).end();
+  }
+});
+
+// Verify the request is from slack, respond 200 imediately, and process the command.
+router.post('/:cmd', VerifyRequestSignature, HandleHelpMsg, RespondProcessing);
+
+// Reply in channel with a map image
+router.post('/map', async (req) => {
+  // Get the map title, and article url
+  const mapObj = await GetMatchingMapObj(req.body.text)
+    .catch((err) => {
+      slackResponseInChannel(req.body.response_url, err.message);
+    });
+
+  // Scrape the map image from the liquipedia article
+  const imgUrl = await ScrapeFirstImgFromLiquipedia(mapObj.pageUri);
+  slackResponseShowimage(req.body.response_url, mapObj.mapTitle, imgUrl);
+});
+
+module.exports = router;
