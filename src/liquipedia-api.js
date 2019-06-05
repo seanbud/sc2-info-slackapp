@@ -60,7 +60,7 @@ module.exports = {
     const mapImgUri = await ScrapeFirstImgFromPage(mapArticleUri);
     return {
       title: mapTitle,
-      uri: mapImgUri,
+      img: mapImgUri,
     };
   },
 };

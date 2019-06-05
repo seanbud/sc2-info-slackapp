@@ -15,5 +15,5 @@ function HandleHelpMsg(req, res, next) {
 }
 
 module.exports = {
-  HandleHelpMsg
+  HandleHelpMsg,
 };

@@ -5,7 +5,7 @@ const qs = require('qs'); // For varifying request signatures
 // Check the request is from Slack, and has a matching secret signature to our app.
 function VerifyRequestSignature(req, res, next) {
   // Check for correct headers
-  if(!req.headers['x-slack-signature'] ||!req.headers['x-slack-request-timestamp']) {
+  if (!req.headers['x-slack-signature'] || !req.headers['x-slack-request-timestamp']) {
     res.status(400).send('Request Verification Failed; Missing headers.');
     return;
   }
@@ -37,42 +37,45 @@ function VerifyRequestSignature(req, res, next) {
   )) {
     next();
   } else {
+    console.log('Request Verification Failed! failed secret signing.\n');
     res.status(400).send('Request Verification Failed');
   }
 }
 
 // Respond imediately to the POST request, then continue
 function RespondProcessing(req, res, next) {
-  res.status(200).type('json').json({ response_type: 'in_channel', text: 'processing..' });
+  res.status(200).type('json').json({ response_type: 'ephemeral', text: 'processing..' });
   console.log(`POST request to '${req.body.command}', with data: '${req.body.text}'`);
   next('route');
 }
 
 // Send a message to the slack channel, query had no results.
 function RespondInChannel(responseUrl, text) {
+  console.log(`responding in channel : ${text}\n`);
   fetch(responseUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: {
+    body: JSON.stringify({
       response_type: 'in_channel',
       text,
-    },
+    }),
   });
 }
 
 // Send an image to the slack channel
-function RespondShowimag(responseUrl, imgTitle, imgUrl) {
+function RespondShowimage(responseUrl, imgTitle, imgUrl) {
+  console.log(`responding with img in channel : ${imgUrl}\n`);
   fetch(responseUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: {
+    body: JSON.stringify({
       response_type: 'in_channel',
       attachments: [{
         title: imgTitle,
         fallback: `image of ${imgTitle}`,
         image_url: imgUrl,
       }],
-    },
+    }),
   });
 }
 
@@ -80,5 +83,5 @@ module.exports = {
   VerifyRequestSignature,
   RespondProcessing,
   RespondInChannel,
-  RespondShowimag,
+  RespondShowimage,
 };

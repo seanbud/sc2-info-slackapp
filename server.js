@@ -5,7 +5,7 @@ const app = express();
 
 // Server front end.
 app.use(express.static(`${__dirname}/public`));
-app.get('/', (req, res) => res.sendFile(`${__dirname}/public/index.html`));
+app.get('/', (req, res) => res.sendFile('index.html'));
 
 // Handle all routes and behaviour of the app.
 app.use(require('./src/app.js'));
