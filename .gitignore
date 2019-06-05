@@ -29,3 +29,4 @@ npm-debug.log
 /*.env
 todo
 src/sandbox.js
+src/sandbox-ext.js

@@ -6,7 +6,7 @@ const usage = require('./usage-strings');
 const liquipedia = require('./liquipedia-api');
 // require('dotenv').config(); // for local testing
 
-const router = express.Router;
+const router = express.Router();
 router.use(express.urlencoded({ extended: false }));
 
 // Authenticate workspace

@@ -4,11 +4,17 @@ const qs = require('qs'); // For varifying request signatures
 
 // Check the request is from Slack, and has a matching secret signature to our app.
 function VerifyRequestSignature(req, res, next) {
-  const requestTimestamp = req.headers['x-slack-request-timestamp'];
+  // Check for correct headers
+  if(!req.headers['x-slack-signature'] ||!req.headers['x-slack-request-timestamp']) {
+    res.status(400).send('Request Verification Failed; Missing headers.');
+    return;
+  }
 
   // If req timestamp is 5+ min old, could be a replay attack- ignore it.
+  const requestTimestamp = req.headers['x-slack-request-timestamp'];
   if (Math.abs(Math.floor(Date.now() / 1000) - requestTimestamp) > 60 * 5) {
     console.log('Request too old! Ignoreing request.\n');
+    res.status(400).send('Request Verification Failed; Request is too old.');
     return;
   }
 

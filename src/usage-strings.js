@@ -14,4 +14,6 @@ function HandleHelpMsg(req, res, next) {
   next();
 }
 
-module.exports = HandleHelpMsg;
+module.exports = {
+  HandleHelpMsg
+};
